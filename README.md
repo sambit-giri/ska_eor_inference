@@ -2,6 +2,8 @@
 
 This repository contains code relevant to the Epoch of Reionization (EoR) inference chapter for the SKA Science Working Group.
 
+## Fisher forecast
+
 A first set of files is an example of how to obtain Fisher constraints given the set of simulations provided for the chapter. To do so, you should follow the steps:
 1. Download the simulations from https://21ssd.obspm.fr, under SKA_Chapter_simulations/. There is, in total, 175GB of data. You can inspead the simulations with the `load_sim` notebook.
 2. Convert the simulations, in `npz` format, to `hdf5` format, with the `move2h5py.py` script. Make sure you update the paths to the folder where the simulations are stored and where you want to save the new ones.
