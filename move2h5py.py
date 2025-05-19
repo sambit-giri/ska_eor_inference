@@ -13,12 +13,13 @@ box_length = 200
 frequencies = np.linspace(137.46, 144.60, 128)  # MHz
 redshifts = 1420. / frequencies - 1
 
-files = ['Lightcone_FID_400_Samples.npz']  # np.sort(glob.glob('Lightcone*npz'))
+ddir = './'  # path to simulations
+files = np.sort(glob.glob(ddir+'Lightcone*npz'))
 print(f'{len(files)} files to convert.')
 
 for file in files:
     print(f'\n{file}')
-    newfile = '../'+file[:-3]+'h5'
+    newfile = ddir+file[:-3]+'h5'
     if not os.path.exists(newfile):
         print('Loading npz data...')
         t0 = time.time()
