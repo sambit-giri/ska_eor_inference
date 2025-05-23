@@ -1,7 +1,8 @@
 # Author: Ian Hothi & Adélie Gorce
 # Date: Feb 2025
 
-# This script shows how to compute a statistic from the Fisher dataset.
+# This script shows how to compute a statistic from the Fisher dataset,
+# first on clean data, then on noisy data for the AA* configuration of SKA.
 # This example uses the spherical power spectrum.
 # Computed statistics are saved in the same h5py file as the input data.
 
@@ -16,6 +17,9 @@ import tools21cm as t2c
 
 # Directory where the data is stored
 ddir = '/data/cluster/agorce/SKA_chapter_simulations/'
+
+# Number of CPUs to parallelise over for noise generation
+njobs = 4
 
 # Global parameters
 # Read one h5py file to obtain metadata on simulations
@@ -34,6 +38,14 @@ print(f'Lightcone runs from z={redshifts.min():.2f} to z = {redshifts.max():.2f}
 statname = 'ps'
 nbins = 15  # number of k-bins for the spherical ps
 
+# SKA obs parameters
+obs_time = 1000.  # hours
+int_time = 10.  # seconds
+total_int_time = 4.  # hours per day
+Nant = 512  # number of antennas
+declination = -30.0  # declination of the field in degrees
+bmax = 2.  # km
+
 # Statistics estimation
 
 # List of simulation files to loop over
@@ -43,28 +55,68 @@ for fname in files:
     print(f'\nProcessing {os.path.basename(fname)}…')
 
     # Prepare output container
-    PS = np.zeros((n_samp, nbins), dtype=np.float32)
-    ks = None
+    ps_clean = np.zeros((n_samp, nbins), dtype=np.float32)
+    ps_noise = np.zeros((n_samp, nbins), dtype=np.float32)
+    ps_obs = np.zeros((n_samp, nbins), dtype=np.float32)
 
     # Loop over each realisation
     for i in tqdm.tqdm(range(n_samp)):
+        # load 21cm brightness lightcone
         with h5py.File(fname, 'r') as f:
             data = f['brightness_lightcone'][i]
-
+        # generate SKA AA* noise
+        noise_box = t2c.noise_lightcone(
+            ncells=box_dim,
+            zs=redshifts,
+            obs_time=obs_time,
+            total_int_time=total_int_time,
+            int_time=int_time,
+            declination=declination,
+            N_ant=Nant,
+            subarray_type="AAstar",
+            boxsize=box_length,
+            verbose=False,
+            save_uvmap=ddir+'uvmap_AAstar.h5',  # save uv coverage to re-use for each realisation
+            n_jobs=njobs,
+        )  # third axis is line of sight
+        data = np.moveaxis(data, 0, 2)
+        # need to move it to the first axis to match simulation
+        # observation = cosmological signal + noise
+        dt_obs = t2c.smooth_lightcone(
+            lightcone=noise_box + t2c.subtract_mean_signal(data, los_axis=2),  # Data cube that is to be smoothed
+            z_array=redshifts,  # Redshifts along the lightcone
+            box_size_mpc=box_length,  # Box size in cMpc
+            max_baseline=bmax,     # Maximum baseline of the telescope
+        )[0]
         # compute your statistic from the data
-        PS[i], ks = t2c.power_spectrum_1d(
+        # clean data
+        ps_clean[i], ks = t2c.power_spectrum_1d(
             data,
+            kbins=nbins,
+            box_dims=box_length
+        )
+        # noisy data
+        ps_obs[i], ks = t2c.power_spectrum_1d(
+            dt_obs,
+            kbins=nbins,
+            box_dims=box_length
+        )
+        # noise
+        ps_noise[i], ks = t2c.power_spectrum_1d(
+            noise_box,
             kbins=nbins,
             box_dims=box_length
         )
 
     with h5py.File(fname, 'r+') as f:
-        f.create_dataset(statname, data=PS, shape=PS.shape)
+        f.create_dataset(statname+'_clean', data=ps_clean, shape=ps_clean.shape)
+        f.create_dataset(statname+'_noise', data=ps_noise, shape=ps_noise.shape)
+        f.create_dataset(statname+'_obs', data=ps_obs, shape=ps_obs.shape)
         f.create_dataset('bins', data=ks, shape=ks.shape)
-    print(f'Saved.')
+    print('Saved.')
 
     # Teardown to free memory
-    del data, PS
+    del data, ps_clean, ps_noise, ps_obs, ks
     gc.collect()
 
 print('\nDone.')
