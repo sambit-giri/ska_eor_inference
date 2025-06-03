@@ -1,4 +1,3 @@
-
 import numpy as np
 import h5py
 import time
@@ -19,7 +18,7 @@ print(f'{len(files)} files to convert.')
 
 for file in files:
     print(f'\n{file}')
-    newfile = ddir+file[:-3]+'h5'
+    newfile = file[:-3]+'h5'
     if not os.path.exists(newfile):
         print('Loading npz data...')
         t0 = time.time()
