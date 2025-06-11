@@ -13,17 +13,19 @@ import glob
 import os
 import gc
 from astropy import units
+from astropy.cosmology import Planck18 as cos
 # For Power Spectrum and noise calculations
 import tools21cm as t2c
 
 # Directory where the data is stored
-ddir = '/data/cluster/agorce/SKA_chapter_simulations/'
+# ddir = '/data/cluster/agorce/SKA_chapter_simulations/'
+ddir = './SKA_chapter_simulations/' # This folder can be created inside the repository folder. It will be ignored during the git commit.
 
 # Overwriting existing statistic
 overwrite = True
 
 # Number of CPUs to parallelise over for noise generation
-njobs = 4
+njobs = 1 #4
 
 # Global parameters
 # Read one h5py file to obtain metadata on simulations
@@ -38,16 +40,22 @@ with h5py.File(file, 'r') as f:
 nfreq = frequencies.size
 print(f'Lightcone runs from z={redshifts.min():.2f} to z = {redshifts.max():.2f}.')
 
+# The physical length along the line-of-sight (LOS) is different from the field-of-view (FoV).
+# Below the list box_length_list should be provided to power spectrum calculator of tools21cm to take this into account.
+cdists = cos.comoving_distance(redshifts)
+box_length_los = (cdists.max()-cdists.min()).value
+box_length_list = [box_length, box_length, box_length_los]
+
 # statistic params
 statname = 'ps'
 nbins = 15  # number of k-bins for the spherical ps
 
 # SKA obs parameters
-obs_time = 1000.  # hours
-int_time = 10.  # seconds
+obs_time = 1000.     # total observation hours
+int_time = 10.       # seconds
 total_int_time = 6.  # hours per day
 declination = -30.0  # declination of the field in degrees
-bmax = 2. * units.km  # km
+bmax = 2. * units.km # km
 
 # Statistics estimation
 
@@ -55,7 +63,7 @@ bmax = 2. * units.km  # km
 files = np.sort(glob.glob(ddir+'Lightcone*h5'))
 
 for fname in files:
-    print(f'\nProcessing {os.path.basename(fname)}…')
+    print(f'\nProcessing {os.path.basename(fname)} …')
 
     # Prepare output container
     ps_clean = np.zeros((n_samp, nbins), dtype=np.float32)
@@ -74,7 +82,7 @@ for fname in files:
         ps_clean[i], ks = t2c.power_spectrum_1d(
             data,
             kbins=nbins,
-            box_dims=box_length
+            box_dims=box_length_list
         )
         if ('FID' in fname):
             # generate SKA AA* noise
@@ -103,13 +111,13 @@ for fname in files:
             ps_obs[i], ks = t2c.power_spectrum_1d(
                 dt_obs,
                 kbins=nbins,
-                box_dims=box_length
+                box_dims=box_length_list
             )
             # noise
             ps_noise[i], ks = t2c.power_spectrum_1d(
                 noise_lc,
                 kbins=nbins,
-                box_dims=box_length
+                box_dims=box_length_list
             )
 
     with h5py.File(fname, 'r+') as f:
