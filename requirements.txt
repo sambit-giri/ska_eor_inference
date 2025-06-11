@@ -1,0 +1,8 @@
+numpy
+matplotlib
+corner
+h5py
+tqdm
+astropy
+jupyter
+tools21cm>=2.3.5
