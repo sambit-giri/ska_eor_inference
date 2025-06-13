@@ -22,7 +22,7 @@ import tools21cm as t2c
 ddir = './SKA_chapter_simulations/' # This folder can be created inside the repository folder. It will be ignored during the git commit.
 
 # Overwriting existing statistic
-overwrite = True
+overwrite = False #True
 
 # Number of CPUs to parallelise over for noise generation
 njobs = 1 #4
@@ -65,76 +65,91 @@ files = np.sort(glob.glob(ddir+'Lightcone*h5'))
 for fname in files:
     print(f'\nProcessing {os.path.basename(fname)} …')
 
-    # Prepare output container
-    ps_clean = np.zeros((n_samp, nbins), dtype=np.float32)
-    ps_noise = np.zeros((n_samp, nbins), dtype=np.float32)
-    ps_obs = np.zeros((n_samp, nbins), dtype=np.float32)
+    if overwrite:
+        compute = True 
+    else:
+        compute = False
+        with h5py.File(fname, 'r+') as f:
+            # Remove existing datasets if they exist
+            for name in [statname+'_clean', 'bins']:
+                if name not in f:
+                    compute = True
 
-    # Loop over each realisation
-    for i in tqdm.tqdm(range(n_samp)):
-        # load 21cm brightness lightcone
-        with h5py.File(fname, 'r') as f:
-            data = f['brightness_lightcone'][i]
-        # need to move it to the first axis to match t21c
-        data = np.moveaxis(data, 0, 2)
-        # compute your statistic from the data
-        # clean data
-        ps_clean[i], ks = t2c.power_spectrum_1d(
-            data,
-            kbins=nbins,
-            box_dims=box_length_list
-        )
-        if ('FID' in fname):
-            # generate SKA AA* noise
-            noise_lc = t2c.noise_lightcone(
-                ncells=box_dim,
-                zs=redshifts,
-                obs_time=obs_time,
-                total_int_time=total_int_time,
-                int_time=int_time,
-                declination=declination,
-                subarray_type="AAstar",
-                boxsize=box_length,
-                verbose=False,
-                save_uvmap=ddir+'uvmap_AAstar.h5',  # save uv coverage to re-use for each realisation
-                n_jobs=njobs,  # Time period of recording the data in seconds.
-                checkpoint=16,  # The code write data after checkpoint number of calculations.
-            )  # third axis is line of sight
-            # observation = cosmological signal + noise
-            dt_obs = t2c.smooth_lightcone(
-                lightcone=noise_lc + t2c.subtract_mean_signal(data, los_axis=2),  # Data cube that is to be smoothed
-                z_array=redshifts,  # Redshifts along the lightcone
-                box_size_mpc=box_length,  # Box size in cMpc
-                max_baseline=bmax,     # Maximum baseline of the telescope
-            )[0]
-            # noisy data
-            ps_obs[i], ks = t2c.power_spectrum_1d(
-                dt_obs,
+    if compute:
+        # Prepare output container
+        ps_clean = np.zeros((n_samp, nbins), dtype=np.float32)
+        ps_noise = np.zeros((n_samp, nbins), dtype=np.float32)
+        ps_obs = np.zeros((n_samp, nbins), dtype=np.float32)
+    
+        # Loop over each realisation
+        for i in tqdm.tqdm(range(n_samp)):
+            # load 21cm brightness lightcone
+            with h5py.File(fname, 'r') as f:
+                data = f['brightness_lightcone'][i]
+            # need to move it to the first axis to match t21c
+            data = np.moveaxis(data, 0, 2)
+            # compute your statistic from the data
+            # clean data
+            ps_clean[i], ks = t2c.power_spectrum_1d(
+                data,
                 kbins=nbins,
                 box_dims=box_length_list
             )
-            # noise
-            ps_noise[i], ks = t2c.power_spectrum_1d(
-                noise_lc,
-                kbins=nbins,
-                box_dims=box_length_list
-            )
+            if ('FID' in fname):
+                # generate SKA AA* noise
+                noise_lc = t2c.noise_lightcone(
+                    ncells=box_dim,
+                    zs=redshifts,
+                    obs_time=obs_time,
+                    total_int_time=total_int_time,
+                    int_time=int_time,
+                    declination=declination,
+                    subarray_type="AAstar",
+                    boxsize=box_length,
+                    verbose=False,
+                    save_uvmap=ddir+'uvmap_AAstar.h5',  # save uv coverage to re-use for each realisation
+                    n_jobs=njobs,  # Time period of recording the data in seconds.
+                    checkpoint=16,  # The code write data after checkpoint number of calculations.
+                )  # third axis is line of sight
+                # observation = cosmological signal + noise
+                dt_obs = t2c.smooth_lightcone(
+                    lightcone=noise_lc + t2c.subtract_mean_signal(data, los_axis=2),  # Data cube that is to be smoothed
+                    z_array=redshifts,  # Redshifts along the lightcone
+                    box_size_mpc=box_length,  # Box size in cMpc
+                    max_baseline=bmax,     # Maximum baseline of the telescope
+                )[0]
+                # noisy data
+                ps_obs[i], ks = t2c.power_spectrum_1d(
+                    dt_obs,
+                    kbins=nbins,
+                    box_dims=box_length_list
+                )
+                # noise
+                ps_noise[i], ks = t2c.power_spectrum_1d(
+                    noise_lc,
+                    kbins=nbins,
+                    box_dims=box_length_list
+                )
+    
+        with h5py.File(fname, 'r+') as f:
+            # Remove existing datasets if they exist
+            for name in [statname+'_clean', statname+'_noise', statname+'_obs', 'bins']:
+                if name in f and overwrite:
+                    del f[name]
+            # Save the computed statistics
+            f.create_dataset(statname+'_clean', data=ps_clean, shape=ps_clean.shape)
+            f.create_dataset('bins', data=ks, shape=ks.shape)
+            if 'FID' in fname:
+                f.create_dataset(statname+'_noise', data=ps_noise, shape=ps_noise.shape)
+                f.create_dataset(statname+'_obs', data=ps_obs, shape=ps_obs.shape)
+        print('Saved.')
+    
+        # Teardown to free memory
+        del data, ps_clean, ps_noise, ps_obs, ks
+        gc.collect()
 
-    with h5py.File(fname, 'r+') as f:
-        # Remove existing datasets if they exist
-        for name in [statname+'_clean', statname+'_noise', statname+'_obs', 'bins']:
-            if name in f and overwrite:
-                del f[name]
-        # Save the computed statistics
-        f.create_dataset(statname+'_clean', data=ps_clean, shape=ps_clean.shape)
-        f.create_dataset('bins', data=ks, shape=ks.shape)
-        if 'FID' in fname:
-            f.create_dataset(statname+'_noise', data=ps_noise, shape=ps_noise.shape)
-            f.create_dataset(statname+'_obs', data=ps_obs, shape=ps_obs.shape)
-    print('Saved.')
-
-    # Teardown to free memory
-    del data, ps_clean, ps_noise, ps_obs, ks
-    gc.collect()
+    else:
+        print('Data was already present.')
+        print('To redo the calculation, set overwrite to True')
 
 print('\nDone.')
