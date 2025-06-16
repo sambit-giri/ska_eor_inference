@@ -96,7 +96,7 @@ for fname in files:
         compute = False
         with h5py.File(fname, 'r+') as f:
             # Remove existing datasets if they exist
-            for name in [statname+'_clean', 'bins']:
+            for name in [statname+'_clean', statname+'_bins']:
                 if name not in f:
                     compute = True
 
@@ -156,12 +156,12 @@ for fname in files:
     
         with h5py.File(fname, 'r+') as f:
             # Remove existing datasets if they exist
-            for name in [statname+'_clean', statname+'_noise', statname+'_obs', 'bins']:
+            for name in [statname+'_clean', statname+'_noise', statname+'_obs', statname+'_bins']:
                 if name in f and overwrite:
                     del f[name]
             # Save the computed statistics
             f.create_dataset(statname+'_clean', data=pdps_clean, shape=pdps_clean.shape)
-            f.create_dataset('bins', data=ks, shape=ks.shape)
+            f.create_dataset(statname+'_bins', data=ks, shape=ks.shape)
             if 'FID' in fname:
                 f.create_dataset(statname+'_noise', data=pdps_noise, shape=pdps_noise.shape)
                 f.create_dataset(statname+'_obs', data=pdps_obs, shape=pdps_obs.shape)
