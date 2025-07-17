@@ -112,7 +112,6 @@ for fname in files:
                     verbose=False,
                     save_uvmap=ddir+'uvmap_AAstar.h5',  # save uv coverage to re-use for each realisation
                     n_jobs=njobs,  # Time period of recording the data in seconds.
-                    checkpoint=16,  # The code write data after checkpoint number of calculations.
                 )  # third axis is line of sight
                 # observation = cosmological signal + noise
                 dt_obs = t2c.smooth_lightcone(
