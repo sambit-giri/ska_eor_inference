@@ -16,13 +16,14 @@ from astropy import units
 from astropy.cosmology import Planck18 as cos
 # For Power Spectrum and noise calculations
 import tools21cm as t2c
+from estimator import *
 
 # Directory where the data is stored
 # ddir = '/data/cluster/agorce/SKA_chapter_simulations/'
 ddir = './SKA_chapter_simulations/' # This folder can be created inside the repository folder. It will be ignored during the git commit.
 
 # Overwriting existing statistic
-overwrite = False #True
+overwrite = False #True #
 
 # Number of CPUs to parallelise over for noise generation
 njobs = 1 #4
@@ -51,29 +52,6 @@ box_length_list = [box_length, box_length, box_length_los]
 # statistic params
 statname = 'PdPS'
 nbins = 10  # number of k-bins for the PdPS
-
-def estimate_PdPS(lc, kbins, box_length, box_length_los):
-    lc_obs = t2c.subtract_mean_signal(lc, los_axis=2)
-    lc_sub = lc_obs[:ngrid//2,:ngrid//2,:]
-    dt_mean0 = lc_sub.mean()
-    ps0, ks0 = t2c.power_spectrum_1d(lc_sub, kbins=kbins, 
-                                     box_dims=[box_length/2,box_length/2,box_length_los])
-    lc_sub = lc_obs[:ngrid//2,ngrid//2:,:]
-    dt_mean1 = lc_sub.mean()
-    ps1, ks1 = t2c.power_spectrum_1d(lc_sub, kbins=kbins, 
-                                     box_dims=[box_length/2,box_length/2,box_length_los])
-    lc_sub = lc_obs[ngrid//2:,:ngrid//2,:]
-    dt_mean2 = lc_sub.mean()
-    ps2, ks2 = t2c.power_spectrum_1d(lc_sub, kbins=kbins, 
-                                     box_dims=[box_length/2,box_length/2,box_length_los])
-    lc_sub = lc_obs[ngrid//2:,ngrid//2:,:]
-    dt_mean3 = lc_sub.mean()
-    ps3, ks3 = t2c.power_spectrum_1d(lc_sub, kbins=kbins, 
-                                     box_dims=[box_length/2,box_length/2,box_length_los])
-    iBk = (ps0*dt_mean0+ps1*dt_mean1+ps2*dt_mean2+ps3*dt_mean3)/4
-    Pk_mean  = (ps0+ps1+ps2+ps3)/4
-    var_mean = (dt_mean0**2+dt_mean1**2+dt_mean2**2+dt_mean3**2)/4
-    return iBk/Pk_mean/var_mean, ks0
 
 # SKA obs parameters
 obs_time = 1000.     # total observation hours
@@ -134,7 +112,7 @@ for fname in files:
                     verbose=False,
                     save_uvmap=ddir+'uvmap_AAstar.h5',  # save uv coverage to re-use for each realisation
                     n_jobs=njobs,  # Time period of recording the data in seconds.
-                    checkpoint=16,  # The code write data after checkpoint number of calculations.
+                    # checkpoint=16,  # The code write data after checkpoint number of calculations.
                 )  # third axis is line of sight
                 # observation = cosmological signal + noise
                 dt_obs = t2c.smooth_lightcone(
