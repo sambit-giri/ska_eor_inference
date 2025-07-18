@@ -16,7 +16,7 @@ from astropy import units
 from astropy.cosmology import Planck18 as cos
 # For Power Spectrum and noise calculations
 import tools21cm as t2c
-from estimator import *
+import estimator
 
 # cosmology
 h = 0.6774
@@ -24,7 +24,7 @@ h = 0.6774
 # Directory where the data is stored
 # ddir = '/data/cluster/agorce/SKA_chapter_simulations/'
 ddir = './SKA_chapter_simulations/' # This folder can be created inside the repository folder. It will be ignored during the git commit.
-output_dir = './output/
+output_dir = './output/'
 
 # Overwriting existing statistic
 overwrite = False #True
@@ -79,7 +79,7 @@ for fname in files:
     name_without_ext = os.path.splitext(base_fname)[0]
     # Replace 'Lightcone' with the chosen statistic name (e.g., 'ps')
     new_base_name = name_without_ext.replace('Lightcone', statname, 1) # Replace only the first occurrence
-    output_base_fname = f"{new_base_name}_{telescope_type}_{int(obs_time)}h.h5" 
+    output_base_fname = f"{new_base_name}_{subarray_type}_{int(obs_time)}h.h5" 
     output_fname = os.path.join(output_dir, output_base_fname)
 
     # Determine if computation is needed
@@ -115,7 +115,7 @@ for fname in files:
             data = np.moveaxis(data, 0, 2)
             # compute your statistic from the data
             # clean data
-            ps_clean[i], ks = EulerCharacteristicCurve(
+            ps_clean[i], ks = estimator.EulerCharacteristicCurve(
                 data,
                 nbins=nubins,
                 speed_up='numba', verbose=True
@@ -132,7 +132,7 @@ for fname in files:
                     subarray_type=subarray_type,
                     boxsize=box_length,
                     verbose=False,
-                    save_uvmap=ddir+save_uvmap,  
+                    save_uvmap=save_uvmap,  
                     n_jobs=njobs,  # Time period of recording the data in seconds.
                 )  # third axis is line of sight
                 # observation = cosmological signal + noise
@@ -143,13 +143,13 @@ for fname in files:
                     max_baseline=bmax,     # Maximum baseline of the telescope
                 )[0]
                 # noisy data
-                ps_obs[i], ks = EulerCharacteristicCurve(
+                ps_obs[i], ks = estimator.EulerCharacteristicCurve(
                     dt_obs,
                     nbins=nubins,
                     speed_up='numba', verbose=True
                 )
                 # noise
-                ps_noise[i], ks = EulerCharacteristicCurve(
+                ps_noise[i], ks = estimator.EulerCharacteristicCurve(
                     noise_lc,
                     nbins=nubins,
                     speed_up='numba', verbose=True
