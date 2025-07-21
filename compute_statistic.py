@@ -96,7 +96,8 @@ for fname in files:
             data = np.moveaxis(data, 0, 2)
             # compute your statistic from the data
             # clean data
-            moments_clean[i] = [np.mean(data), np.var(data), skew(data), kurtosis(data)]
+            moments_clean[i, :] = [np.mean(data), np.var(data),
+                                   skew(data, axis=None), kurtosis(data, axis=None)]
             if ('FID' in fname):
                 # generate SKA AA* noise
                 noise_lc = t2c.noise_lightcone(
@@ -121,9 +122,11 @@ for fname in files:
                     max_baseline=bmax,     # Maximum baseline of the telescope
                 )[0]
                 # noisy data
-                moments_obs[i] = [np.mean(dt_obs), np.var(dt_obs), skew(dt_obs), kurtosis(dt_obs)]
+                moments_obs[i, :] = [np.mean(dt_obs), np.var(dt_obs),
+                                     skew(dt_obs, axis=None), kurtosis(dt_obs, axis=None)]
                 # noise
-                moments_noise[i] = [np.mean(noise_lc), np.var(noise_lc), skew(noise_lc), kurtosis(noise_lc)]
+                moments_noise[i, :] = [np.mean(noise_lc), np.var(noise_lc),
+                                       skew(noise_lc, axis=None), kurtosis(noise_lc, axis=None)]
     
         with h5py.File(fname, 'r+') as f:
             # Remove existing datasets if they exist
