@@ -52,9 +52,14 @@ box_length_los = (cdists.max()-cdists.min()).value
 box_length_list = [box_length, box_length, box_length_los]
 
 # statistic params
-statname = 'moments'
-# mean, variance, skewness, kurtosis
-nstats = 4
+# statname = 'moments'
+statname = 'pdf'
+# # mean, variance, skewness, kurtosis
+# nstats = 4
+dr = 0.5
+bin_edges = np.arange(-dr/2, 100, step=dr)
+bin_centres = 0.5 * (bin_edges[1:] + bin_edges[:-1])
+nbins = bin_centres.size
 
 # SKA obs parameters
 obs_time = 1000.     # total observation hours
@@ -83,10 +88,13 @@ for fname in files:
 
     if compute:
         # Prepare output container
-        moments_clean = np.zeros((n_samp, nstats), dtype=np.float32)
-        moments_noise = np.zeros((n_samp, nstats), dtype=np.float32)
-        moments_obs = np.zeros((n_samp, nstats), dtype=np.float32)
-    
+        # moments_clean = np.zeros((n_samp, nstats), dtype=np.float32)
+        # moments_noise = np.zeros((n_samp, nstats), dtype=np.float32)
+        # moments_obs = np.zeros((n_samp, nstats), dtype=np.float32)
+        stat_clean = np.zeros((n_samp, nbins), dtype=np.float32)
+        stat_noise = np.zeros((n_samp, nbins), dtype=np.float32)
+        stat_obs = np.zeros((n_samp, nbins), dtype=np.float32)
+
         # Loop over each realisation
         for i in tqdm.tqdm(range(n_samp)):
             # load 21cm brightness lightcone
@@ -96,8 +104,7 @@ for fname in files:
             data = np.moveaxis(data, 0, 2)
             # compute your statistic from the data
             # clean data
-            moments_clean[i, :] = [np.mean(data), np.var(data),
-                                   skew(data, axis=None), kurtosis(data, axis=None)]
+            stat_clean[i, :], _ = np.histogram(data.flatten(), bins=bin_edges, density=True)
             if ('FID' in fname):
                 # generate SKA AA* noise
                 noise_lc = t2c.noise_lightcone(
@@ -122,11 +129,13 @@ for fname in files:
                     max_baseline=bmax,     # Maximum baseline of the telescope
                 )[0]
                 # noisy data
-                moments_obs[i, :] = [np.mean(dt_obs), np.var(dt_obs),
-                                     skew(dt_obs, axis=None), kurtosis(dt_obs, axis=None)]
+                # moments_obs[i, :] = [np.mean(dt_obs), np.var(dt_obs),
+                #                      skew(dt_obs, axis=None), kurtosis(dt_obs, axis=None)]
+                stat_obs[i, :], _ = np.histogram(dt_obs.flatten(), bins=bin_edges, density=True)
                 # noise
-                moments_noise[i, :] = [np.mean(noise_lc), np.var(noise_lc),
-                                       skew(noise_lc, axis=None), kurtosis(noise_lc, axis=None)]
+                # moments_noise[i, :] = [np.mean(noise_lc), np.var(noise_lc),
+                #                        skew(noise_lc, axis=None), kurtosis(noise_lc, axis=None)]
+                stat_noise[i, :], _ = np.histogram(noise_lc.flatten(), bins=bin_edges, density=True)
     
         with h5py.File(fname, 'r+') as f:
             # Remove existing datasets if they exist
@@ -134,14 +143,14 @@ for fname in files:
                 if name in f and overwrite:
                     del f[name]
             # Save the computed statistics
-            f.create_dataset(statname+'_clean', data=moments_clean, shape=moments_clean.shape)
+            f.create_dataset(statname+'_clean', data=stat_clean, shape=stat_clean.shape)
             if 'FID' in fname:
-                f.create_dataset(statname+'_noise', data=moments_noise, shape=moments_noise.shape)
-                f.create_dataset(statname+'_obs', data=moments_obs, shape=moments_obs.shape)
+                f.create_dataset(statname+'_noise', data=stat_noise, shape=stat_noise.shape)
+                f.create_dataset(statname+'_obs', data=stat_obs, shape=stat_obs.shape)
         print('Saved.')
     
         # Teardown to free memory
-        del data, moments_clean, moments_noise, moments_obs
+        del data, stat_clean, stat_noise, stat_obs
         gc.collect()
 
     else:
