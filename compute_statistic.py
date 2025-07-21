@@ -14,15 +14,17 @@ import os
 import gc
 from astropy import units
 from astropy.cosmology import Planck18 as cos
-# For Power Spectrum and noise calculations
+# For noise calculations
 import tools21cm as t2c
+# For stat computation
+from scipy.stats import skew, kurtosis
 
 # cosmology
 h = 0.6774
 
 # Directory where the data is stored
-# ddir = '/data/cluster/agorce/SKA_chapter_simulations/'
-ddir = './SKA_chapter_simulations/' # This folder can be created inside the repository folder. It will be ignored during the git commit.
+ddir = '/data/cluster/agorce/SKA_chapter_simulations/'
+# ddir = './SKA_chapter_simulations/' # This folder can be created inside the repository folder. It will be ignored during the git commit.
 
 # Overwriting existing statistic
 overwrite = False #True
@@ -50,15 +52,16 @@ box_length_los = (cdists.max()-cdists.min()).value
 box_length_list = [box_length, box_length, box_length_los]
 
 # statistic params
-statname = 'ps'
-nbins = 15  # number of k-bins for the spherical ps
+statname = 'moments'
+# mean, variance, skewness, kurtosis
+nstats = 4
 
 # SKA obs parameters
 obs_time = 1000.     # total observation hours
 int_time = 10.       # seconds
 total_int_time = 6.  # hours per day
 declination = -30.0  # declination of the field in degrees
-bmax = 2. * units.km # km
+bmax = 2. * units.km  # km
 
 # Statistics estimation
 
@@ -69,7 +72,7 @@ for fname in files:
     print(f'\nProcessing {os.path.basename(fname)} …')
 
     if overwrite:
-        compute = True 
+        compute = True
     else:
         compute = False
         with h5py.File(fname, 'r+') as f:
@@ -80,9 +83,9 @@ for fname in files:
 
     if compute:
         # Prepare output container
-        ps_clean = np.zeros((n_samp, nbins), dtype=np.float32)
-        ps_noise = np.zeros((n_samp, nbins), dtype=np.float32)
-        ps_obs = np.zeros((n_samp, nbins), dtype=np.float32)
+        moments_clean = np.zeros((n_samp, nstats), dtype=np.float32)
+        moments_noise = np.zeros((n_samp, nstats), dtype=np.float32)
+        moments_obs = np.zeros((n_samp, nstats), dtype=np.float32)
     
         # Loop over each realisation
         for i in tqdm.tqdm(range(n_samp)):
@@ -93,11 +96,7 @@ for fname in files:
             data = np.moveaxis(data, 0, 2)
             # compute your statistic from the data
             # clean data
-            ps_clean[i], ks = t2c.power_spectrum_1d(
-                data,
-                kbins=nbins,
-                box_dims=box_length_list
-            )
+            moments_clean[i] = [np.mean(data), np.var(data), skew(data), kurtosis(data)]
             if ('FID' in fname):
                 # generate SKA AA* noise
                 noise_lc = t2c.noise_lightcone(
@@ -122,17 +121,9 @@ for fname in files:
                     max_baseline=bmax,     # Maximum baseline of the telescope
                 )[0]
                 # noisy data
-                ps_obs[i], ks = t2c.power_spectrum_1d(
-                    dt_obs,
-                    kbins=nbins,
-                    box_dims=box_length_list
-                )
+                moments_obs[i] = [np.mean(dt_obs), np.var(dt_obs), skew(dt_obs), kurtosis(dt_obs)]
                 # noise
-                ps_noise[i], ks = t2c.power_spectrum_1d(
-                    noise_lc,
-                    kbins=nbins,
-                    box_dims=box_length_list
-                )
+                moments_noise[i] = [np.mean(noise_lc), np.var(noise_lc), skew(noise_lc), kurtosis(noise_lc)]
     
         with h5py.File(fname, 'r+') as f:
             # Remove existing datasets if they exist
@@ -140,15 +131,14 @@ for fname in files:
                 if name in f and overwrite:
                     del f[name]
             # Save the computed statistics
-            f.create_dataset(statname+'_clean', data=ps_clean, shape=ps_clean.shape)
-            f.create_dataset('bins', data=ks, shape=ks.shape)
+            f.create_dataset(statname+'_clean', data=moments_clean, shape=moments_clean.shape)
             if 'FID' in fname:
-                f.create_dataset(statname+'_noise', data=ps_noise, shape=ps_noise.shape)
-                f.create_dataset(statname+'_obs', data=ps_obs, shape=ps_obs.shape)
+                f.create_dataset(statname+'_noise', data=moments_noise, shape=moments_noise.shape)
+                f.create_dataset(statname+'_obs', data=moments_obs, shape=moments_obs.shape)
         print('Saved.')
     
         # Teardown to free memory
-        del data, ps_clean, ps_noise, ps_obs, ks
+        del data, moments_clean, moments_noise, moments_obs
         gc.collect()
 
     else:
