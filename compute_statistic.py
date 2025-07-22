@@ -27,10 +27,10 @@ ddir = '/data/cluster/agorce/SKA_chapter_simulations/'
 # ddir = './SKA_chapter_simulations/' # This folder can be created inside the repository folder. It will be ignored during the git commit.
 
 # Overwriting existing statistic
-overwrite = False #True
+overwrite = True
 
 # Number of CPUs to parallelise over for noise generation
-njobs = 1 #4
+njobs = 4
 
 # Global parameters
 # Read one h5py file to obtain metadata on simulations
@@ -52,17 +52,20 @@ box_length_los = (cdists.max()-cdists.min()).value
 box_length_list = [box_length, box_length, box_length_los]
 
 # statistic params
-# statname = 'moments'
-statname = 'pdf'
+statname_mom = 'moments'
+statname_pdf = 'pdf'
 # # mean, variance, skewness, kurtosis
 # nstats = 4
-dr = 0.5
-bin_edges = np.arange(-dr/2, 100, step=dr)
+dr = 1.
+bin_edges = np.arange(-100, 100, step=dr)
 bin_centres = 0.5 * (bin_edges[1:] + bin_edges[:-1])
 nbins = bin_centres.size
+nstats = 4
 
 # SKA obs parameters
-obs_time = 1000.     # total observation hours
+# obs_time = 1000.     # total observation hours
+obs_time_array = [100., 1000., 1000.]
+layout_array = ['AAstar', 'AAstar', 'AA4']
 int_time = 10.       # seconds
 total_int_time = 6.  # hours per day
 declination = -30.0  # declination of the field in degrees
@@ -82,18 +85,18 @@ for fname in files:
         compute = False
         with h5py.File(fname, 'r+') as f:
             # Remove existing datasets if they exist
-            for name in [statname+'_clean', 'bins']:
+            for name in [statname_mom+'_clean', statname_pdf+'_clean']:
                 if name not in f:
                     compute = True
 
     if compute:
         # Prepare output container
-        # moments_clean = np.zeros((n_samp, nstats), dtype=np.float32)
-        # moments_noise = np.zeros((n_samp, nstats), dtype=np.float32)
-        # moments_obs = np.zeros((n_samp, nstats), dtype=np.float32)
+        moments_clean = np.zeros((n_samp, nstats), dtype=np.float32)
+        moments_noise = np.zeros((n_samp, nstats, len(obs_time_array)), dtype=np.float32)
+        moments_obs = np.zeros((n_samp, nstats, len(obs_time_array)), dtype=np.float32)
         stat_clean = np.zeros((n_samp, nbins), dtype=np.float32)
-        stat_noise = np.zeros((n_samp, nbins), dtype=np.float32)
-        stat_obs = np.zeros((n_samp, nbins), dtype=np.float32)
+        stat_noise = np.zeros((n_samp, nbins, len(obs_time_array)), dtype=np.float32)
+        stat_obs = np.zeros((n_samp, nbins, len(obs_time_array)), dtype=np.float32)
 
         # Loop over each realisation
         for i in tqdm.tqdm(range(n_samp)):
@@ -102,54 +105,77 @@ for fname in files:
                 data = f['brightness_lightcone'][i]
             # need to move it to the first axis to match t21c
             data = np.moveaxis(data, 0, 2)
+            data = t2c.subtract_mean_signal(data, los_axis=2)
             # compute your statistic from the data
             # clean data
+            moments_clean[i, :] = [np.mean(data), np.var(data),
+                                   skew(data, axis=None), kurtosis(data, axis=None)]
             stat_clean[i, :], _ = np.histogram(data.flatten(), bins=bin_edges, density=True)
             if ('FID' in fname):
-                # generate SKA AA* noise
-                noise_lc = t2c.noise_lightcone(
-                    ncells=box_dim,
-                    zs=redshifts,
-                    obs_time=obs_time,
-                    total_int_time=total_int_time,
-                    int_time=int_time,
-                    declination=declination,
-                    subarray_type="AAstar",
-                    boxsize=box_length,
-                    verbose=False,
-                    save_uvmap=ddir+'uvmap_AAstar.h5',  # save uv coverage to re-use for each realisation
-                    n_jobs=njobs,  # Time period of recording the data in seconds.
-                    checkpoint=16,  # The code write data after checkpoint number of calculations.
-                )  # third axis is line of sight
-                # observation = cosmological signal + noise
-                dt_obs = t2c.smooth_lightcone(
-                    lightcone=noise_lc + t2c.subtract_mean_signal(data, los_axis=2),  # Data cube that is to be smoothed
-                    z_array=redshifts,  # Redshifts along the lightcone
-                    box_size_mpc=box_length,  # Box size in cMpc
-                    max_baseline=bmax,     # Maximum baseline of the telescope
-                )[0]
-                # noisy data
-                # moments_obs[i, :] = [np.mean(dt_obs), np.var(dt_obs),
-                #                      skew(dt_obs, axis=None), kurtosis(dt_obs, axis=None)]
-                stat_obs[i, :], _ = np.histogram(dt_obs.flatten(), bins=bin_edges, density=True)
-                # noise
-                # moments_noise[i, :] = [np.mean(noise_lc), np.var(noise_lc),
-                #                        skew(noise_lc, axis=None), kurtosis(noise_lc, axis=None)]
-                stat_noise[i, :], _ = np.histogram(noise_lc.flatten(), bins=bin_edges, density=True)
-    
+                for j, (obs_time, layout) in enumerate(zip(obs_time_array, layout_array)):
+                    print(f'Computing noise for {layout} with obs_time = {obs_time} hours')
+                    noise_lc = t2c.noise_lightcone(
+                        ncells=box_dim,
+                        zs=redshifts,
+                        obs_time=obs_time,
+                        total_int_time=total_int_time,
+                        int_time=int_time,
+                        declination=declination,
+                        subarray_type=layout,
+                        boxsize=box_length,
+                        verbose=False,
+                        save_uvmap=f'{ddir}uvmap_{layout}_{int(obs_time)}hrs.h5',  # save uv coverage to re-use for each realisation
+                        n_jobs=njobs,  # Time period of recording the data in seconds.
+                        checkpoint=16,  # The code write data after checkpoint number of calculations.
+                    )  # third axis is line of sight
+                    # observation = cosmological signal + noise
+                    dt_obs = t2c.smooth_lightcone(
+                        lightcone=noise_lc + data,  # Data cube that is to be smoothed
+                        z_array=redshifts,  # Redshifts along the lightcone
+                        box_size_mpc=box_length,  # Box size in cMpc
+                        max_baseline=bmax,     # Maximum baseline of the telescope
+                    )[0]
+                    # noisy data
+                    moments_obs[i, :, j] = [
+                        np.mean(dt_obs), np.var(dt_obs),
+                        skew(dt_obs, axis=None), kurtosis(dt_obs, axis=None)
+                    ]
+                    stat_obs[i, :, j], _ = np.histogram(dt_obs.flatten(), bins=bin_edges, density=True)
+                    # noise
+                    moments_noise[i, :, j] = [
+                        np.mean(noise_lc), np.var(noise_lc),
+                        skew(noise_lc, axis=None), kurtosis(noise_lc, axis=None)
+                    ]
+                    stat_noise[i, :, j], _ = np.histogram(noise_lc.flatten(), bins=bin_edges, density=True)
+                    del noise_lc, dt_obs
+
         with h5py.File(fname, 'r+') as f:
             # Remove existing datasets if they exist
-            for name in [statname+'_clean', statname+'_noise', statname+'_obs', 'bins']:
+            for name in [statname_mom+'_clean', statname_mom+'_noise', statname_mom+'_obs',
+                         statname_pdf+'_clean', statname_pdf+'_noise', statname_pdf+'_obs']:
                 if name in f and overwrite:
                     del f[name]
             # Save the computed statistics
-            f.create_dataset(statname+'_clean', data=stat_clean, shape=stat_clean.shape)
+            f.create_dataset(statname_pdf+'_clean', data=stat_clean, shape=stat_clean.shape)
+            f.create_dataset(statname_pdf+'_bins', data=bin_centres, shape=bin_centres.shape)
+            f.create_dataset(statname_mom+'_clean', data=moments_clean, shape=moments_clean.shape)
             if 'FID' in fname:
-                f.create_dataset(statname+'_noise', data=stat_noise, shape=stat_noise.shape)
-                f.create_dataset(statname+'_obs', data=stat_obs, shape=stat_obs.shape)
+                for j, (obs_time, layout) in enumerate(zip(obs_time_array, layout_array)):
+                    f.create_dataset(
+                        f'{statname_mom}_noise_{layout}_{int(obs_time)}hrs',
+                        data=moments_noise[..., j], shape=moments_noise[..., j].shape)
+                    f.create_dataset(
+                        f'{statname_mom}_obs_{layout}_{int(obs_time)}hrs',
+                        data=moments_obs[..., j], shape=moments_obs[..., j].shape)
+                    f.create_dataset(
+                        f'{statname_pdf}_noise_{layout}_{int(obs_time)}hrs',
+                        data=stat_noise[..., j], shape=stat_noise[..., j].shape)
+                    f.create_dataset(
+                        f'{statname_pdf}_obs_{layout}_{int(obs_time)}hrs',
+                        data=stat_obs[..., j], shape=stat_obs[..., j].shape)
         print('Saved.')
-    
-        # Teardown to free memory
+
+        # Delete to free memory
         del data, stat_clean, stat_noise, stat_obs
         gc.collect()
 
