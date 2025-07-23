@@ -52,15 +52,15 @@ box_length_los = (cdists.max()-cdists.min()).value
 box_length_list = [box_length, box_length, box_length_los]
 
 # statistic params
+# mean, variance, skewness, kurtosis
 statname_mom = 'moments'
+nstats = 4
+# pixel distribution function
 statname_pdf = 'pdf'
-# # mean, variance, skewness, kurtosis
-# nstats = 4
 dr = 1.
 bin_edges = np.arange(-100, 100, step=dr)
 bin_centres = 0.5 * (bin_edges[1:] + bin_edges[:-1])
 nbins = bin_centres.size
-nstats = 4
 
 # SKA obs parameters
 # obs_time = 1000.     # total observation hours
@@ -152,7 +152,7 @@ for fname in files:
         with h5py.File(fname, 'r+') as f:
             # Remove existing datasets if they exist
             for name in [statname_mom+'_clean', statname_mom+'_noise', statname_mom+'_obs',
-                         statname_pdf+'_clean', statname_pdf+'_noise', statname_pdf+'_obs']:
+                         statname_pdf+'_clean', statname_pdf+'_noise', statname_pdf+'_obs', statname_pdf+'_bins']:
                 if name in f and overwrite:
                     del f[name]
             # Save the computed statistics
