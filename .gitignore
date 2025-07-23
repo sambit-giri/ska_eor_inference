@@ -174,4 +174,5 @@ cython_debug/
 .pypirc
 
 # Simulation data folder
+SKA_chapter_simulations
 SKA_chapter_simulations/

@@ -16,7 +16,7 @@ from astropy import units
 from astropy.cosmology import Planck18 as cos
 # For Power Spectrum and noise calculations
 import tools21cm as t2c
-from estimator import *
+from PdPS.estimator import *
 
 # Directory where the data is stored
 # ddir = '/data/cluster/agorce/SKA_chapter_simulations/'
