@@ -67,6 +67,7 @@ $$
 \phi^{S}(z) * \psi_{j_z}(z)
 \bigr\|_1,
 $$
+
 $$
 \bar{\phi}^{\ell_2}_{j_z}
 = \bigl\|
