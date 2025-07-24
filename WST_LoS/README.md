@@ -19,6 +19,8 @@ $$\psi_{\mathbf{j_z}}(t) = e^{-\frac{t^2}{2^{2\mathbf{j_z}}}}\cos\left(\frac{5t}
 
 where $j_z$ is the interger scaling of the dyadic dilation. 
 
-We conctatinate out two \phi^{S_1} and \phi^{S_2} results into a single summary \phi^{S}. We apply the continous wavelet, at a given scale $j_z$, and then summarise with either the $\ell_1$- or $\ell_2$-norm:
+We conctatinate out two $\phi^{S_1}$ and $\phi^{S_2}$ results into a single summary $\phi^{S}$. We apply the continous wavelet, at a given scale $j_z$, and then summarise with either the $\ell_1$- or $\ell_2$-norm:
 
-$$\bar{\phi}^{\ell_1}_{j_z} = || \phi^{S}(z) * \psi_{j_z}(z)||_1, ~~~~\text{and} ~~~~ \bar{\phi}^{\ell_2}_{j_z} = || \phi^{s}(z) * \psi_{j_z}(z)||_2^2.$$
+$$\bar{\phi}^{\ell_1}_{j_z} = || \phi^{S}(z) * \psi_{j_z}(z)||_1$$
+
+$$\bar{\phi}^{\ell_2}_{j_z} = || \phi^{s}(z) * \psi_{j_z}(z)||_2^2.$$
