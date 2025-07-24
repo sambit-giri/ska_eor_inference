@@ -67,14 +67,15 @@ $$
 = \bigl\|
 \phi^{S}(z) * \psi_{j_z}(z)
 \bigr\|_1
-$$.
+$$
 
 $$
 \bar{\phi}^{\ell_2}_{j_z}
 = \bigl\|
 \phi^{S}(z) * \psi_{j_z}(z)
 \bigr\|_2^2
-$$.
+$$
+
 
 We then concatenate these two summaries into our final statistic. To ensure that the covariances are well-conditioned we use $j_z$ = 1,2. These are then saved in HDF5 format and used in `Fisher_Tutorial_with_noise.py` to calculate the Fisher Matrices, that are saved in the `output` folder.  
 
