@@ -62,7 +62,12 @@ where $j_z\in\mathbb{Z}$ is the dyadic scale parameter.
 We then concatenate the first $\phi^{S_1}(z)$ and second layers $\phi^{S_2}(z)$ into
 $\phi^{S}(z)$. We then perform the continuous wavelet transform and summarise with either the $\ell_1$- or $\ell_2$-norm:
 
-
+$
+\bar{\phi}^{\ell_1}_{j_z}
+= \bigl\|
+\phi^{S}(z) * \psi_{j_z}(z)
+\bigr\|_1.
+$
 
 $$
 \bar{\phi}^{\ell_2}_{j_z}
