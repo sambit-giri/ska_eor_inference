@@ -63,19 +63,17 @@ We then concatenate the first $\phi^{S_1}(z)$ and second layers $\phi^{S_2}(z)$ 
 $\phi^{S}(z)$. We then perform the continuous wavelet transform and summarise with either the $\ell_1$- or $\ell_2$-norm:
 
 $$
-{\phi}^{\ell_1}_{j_z}
+\bar{\phi}^{\ell_1}_{j_z}
 = \bigl\|
-\phi^{S}(z) * \psi_{j_z}(z)
-\bigr\|_1.
+\phi^{S}(z)\ast \psi_{j_z}(z)
+\bigr\|_1
 $$
 
-and
-
 $$
-{\phi}^{\ell_2}_{j_z}
+\bar{\phi}^{\ell_2}_{j_z}
 = \bigl\|
-\phi^{S}(z) * \psi_{j_z}(z)
-\bigr\|_2^2.
+\phi^{S}(z)\ast \psi_{j_z}(z)
+\bigr\|_2^2
 $$
 
 We then concatenate these two summaries into our final statistic. To ensure that the covariances are well-conditioned we use $j_z$ = 1,2. These are then saved in HDF5 format and used in `Fisher_Tutorial_with_noise.py` to calculate the Fisher Matrices, that are saved in the `output` folder.  
