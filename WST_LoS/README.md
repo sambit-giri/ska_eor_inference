@@ -10,6 +10,7 @@ The script `compute_statistic_WST_Ian.py` takes the simulated lightcones and app
 
 The file `PS_2D_Window_Functions_z8_z9.npz` contains the 2D wavelet set $\{\psi_\lambda\}$, where $\lambda$ denotes the central‑wavenumber scale.
 
+We now outline the statistics used in the script `compute_statistic_WST_Ian.py`, for all the simulated lightcones (Fiducial and changes in the different parameterS) with the three SKA cases applied.
 ---
 
 ## 1. First‑layer Scattering Coefficients
@@ -73,3 +74,7 @@ $$
 \phi^{S}(z) * \psi_{j_z}(z)
 \bigr\|_2^2.
 $$
+
+We then concatenate these two summaries into our final statistic. To ensure that the covariances are well-conditioned we use $j_z$ = 1,2. These are then saved in HDF5 format and used in `Fisher_Tutorial_with_noise.py` to calculate the Fisher Matrices, that are saved in the `output` folder.  
+
+As one can see from `Fisher_Tutorial_with_noise.py`, the results for the covariance are not convergent. This will have an impact on the final results. 
