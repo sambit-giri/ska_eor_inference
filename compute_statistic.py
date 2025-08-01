@@ -30,7 +30,7 @@ ddir = '/data/cluster/agorce/SKA_chapter_simulations/'
 overwrite = True
 
 # Number of CPUs to parallelise over for noise generation
-njobs = 4
+njobs = 8
 
 # Global parameters
 # Read one h5py file to obtain metadata on simulations
@@ -153,10 +153,13 @@ for fname in files:
             # Remove existing datasets if they exist
             for statname in [statname_mom, statname_pdf]:
                 if (statname+'_clean' in f) and overwrite:
-                    del f[name+'_clean']
-                    for obs_time, layout in zip(obs_time_array, layout_array):
-                        del f[f'{statname}_obs_{layout}_{int(obs_time)}hrs']
-                        del f[f'{statname}_noise_{layout}_{int(obs_time)}hrs']
+                    del f[statname+'_clean']
+                    if statname == statname_pdf:
+                        del f[statname+'_bins']
+                    if ('FID' in fname):
+                        for obs_time, layout in zip(obs_time_array, layout_array):
+                            del f[f'{statname}_obs_{layout}_{int(obs_time)}hrs']
+                            del f[f'{statname}_noise_{layout}_{int(obs_time)}hrs']
             # Save the computed statistics
             f.create_dataset(statname_pdf+'_clean', data=stat_clean, shape=stat_clean.shape)
             f.create_dataset(statname_pdf+'_bins', data=bin_centres, shape=bin_centres.shape)
