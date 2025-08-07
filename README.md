@@ -10,7 +10,7 @@ We forecast constraints for three key SKA survey scenarios using Fisher analysis
 ## Repository Structure
 
 The `PdPS/` directory constains the scripts used to estimnate the corresponding summary statistic:
-- `PdPS/estimator.py` contains the function used to estimate the PdPS, which relies on the [Tools21cm](https://github.com/sambit-giri/tools21cm) package
+- `PdPS/estimator.py` contains the function used to estimate the PdPS, which relies on the [tools21cm](https://github.com/sambit-giri/tools21cm) package
 - `PdPS/compute_PdPS_*` are the scripts used to compute PdPS for the three cases.
 - `PdPS/Fisher_Analysis_with_noise.ipynb` is the Jupyter notebook used to perform the Fisher analysis.
 - `PdPS/Plot_Posterior.ipynb` is the Jupyter notebook showing the posterior distribution of the forecast study.
