@@ -2,7 +2,7 @@
 
 This repository contains the code for the Epoch of Reionization (EoR) inference chapter of the SKA Science Working Group. **Sambit K. Giri** is the primary contributor of the code in this branch. The analysis uses the **position-dependent power spectrum (PdPS)** to derive forecasted constraints on EoR parameters. The PdPS statistic is studied in detail in [Giri et al. (2019)](https://ui.adsabs.harvard.edu/abs/2019JCAP...02..058G/abstract).
 
-We derive constraints on the parameters for the following cases:
+We forecast constraints for three key SKA survey scenarios using Fisher analysis:
 1. <mark>100hrs</mark> of observations with the <mark>AA*</mark> layout,
 2. <mark>1000hrs</mark> of observations with the <mark>AA*</mark> layout, and
 3. <mark>1000hrs</mark> of observations with the <mark>AA4</mark> layout.
