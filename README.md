@@ -1,17 +1,24 @@
-# SKA EoR Inference
+# SKA EoR Inference: Euler Characteristics ($\chi$)
 
-This repository contains code relevant to the Epoch of Reionization (EoR) inference chapter for the SKA Science Working Group.
+This repository contains the code for the Epoch of Reionization (EoR) inference chapter of the SKA Science Working Group. **[Sambit K. Giri](https://github.com/sambit-giri)** is the primary contributor of the code in this branch. The analysis uses the **Euler Characteristics ($\chi$)** to derive forecasted constraints on EoR parameters. Several authors have studied $\chi$ of the 21-cm signal (e.g., [Gleser et al. 2006](https://ui.adsabs.harvard.edu/abs/2006MNRAS.370.1329G/abstract); [Friedrich et al. 2011](https://ui.adsabs.harvard.edu/abs/2011MNRAS.413.1353F/abstract); [Giri et al. 2019](https://ui.adsabs.harvard.edu/abs/2019MNRAS.489.1590G/abstract)). This study relies on an efficient algorithm implemented in employed in [tools21cm](https://github.com/sambit-giri/tools21cm)), which is described in Appendix A of [Giri et al. (2019)](https://ui.adsabs.harvard.edu/abs/2019MNRAS.489.1590G/abstract).
 
-We ask that, by July 11, you submit three (3,3) covariance matrices (of the posterior) describing the constraints on the parameters obtained with your summary statistic on a dataset obtained for the following cases:
+We forecast constraints for three key SKA survey scenarios using Fisher analysis:
 1. <mark>100hrs</mark> of observations with the <mark>AA*</mark> layout,
 2. <mark>1000hrs</mark> of observations with the <mark>AA*</mark> layout, and
 3. <mark>1000hrs</mark> of observations with the <mark>AA4</mark> layout.
 
-Note that this main repository is setup for Case 1 above. Update the total observation time (variable `obs_time` and SKA layout (variable `subarray_type`) in the codes described below for the other two cases. 
+## Repository Structure
+
+The `Euler_Characteristics/` directory constains the scripts used to estimnate the corresponding summary statistic:
+- `Euler_Characteristics/estimator.py` contains the function used to estimate the PdPS, which relies on the [tools21cm](https://github.com/sambit-giri/tools21cm) package
+- `Euler_Characteristics/compute_PdPS_*` are the scripts used to compute PdPS for the three cases.
+- `Euler_Characteristics/Fisher_Analysis_with_noise.ipynb` is the Jupyter notebook used to perform the Fisher analysis.
+- `Euler_Characteristics/Plot_Posterior.ipynb` is the Jupyter notebook showing the posterior distribution of the forecast study.
+- `Euler_Characteristics/SKA_chapter_statistics` is the directory containing the summaries estimated from the dataset.
+
+The `output/` directory contains the (3,3) posterior covariance matrices for multiple scenarios. To visualize the results, use the `PdPS/Plot_Posterior.ipynb` notebook, which generates plots of the posterior distributions from the forecast.
 
 ## Usage
-
-Please create your own branch on the repo and upload your codes and result matrices (as three independent text files) to the branch by July 11, 2025. This is to ensure reproducability.
 
 We recommend using a python environment using softwares, such as [venv](https://docs.python.org/3/library/venv.html) and [anaconda](https://www.anaconda.com/) to work with this package. The minimum requirements to run the scripts are listed in the `requirements.txt` file. 
 

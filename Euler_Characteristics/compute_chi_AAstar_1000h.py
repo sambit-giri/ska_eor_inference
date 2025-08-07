@@ -102,7 +102,7 @@ for fname in files:
                     print(f"Resuming from sample {start_from}. Loading previous results.")
                     # Load existing data into memory
                     ps_clean[:start_from] = f_check['clean'][:start_from]
-                    if 'FID' in fname:
+                    if True: #'FID' in fname:
                         ps_noise[:start_from] = f_check['noise'][:start_from]
                         ps_obs[:start_from] = f_check['obs'][:start_from]
         except Exception as e:
@@ -121,7 +121,7 @@ for fname in files:
         ps_clean[i], ks = estimator.EulerCharacteristicCurve(
             data, nbins=nubins, speed_up='torch', verbose=True
         )
-        if ('FID' in fname):
+        if True: #('FID' in fname):
             # generate SKA AA* noise
             noise_lc = t2c.noise_lightcone(
                 ncells=box_dim, zs=redshifts, obs_time=obs_time,
@@ -155,7 +155,7 @@ for fname in files:
             # Save the statistics arrays
             f_out.create_dataset('clean', data=ps_clean)
             f_out.create_dataset('bins', data=ks)
-            if 'FID' in fname:
+            if True: #'FID' in fname:
                 f_out.create_dataset('noise', data=ps_noise)
                 f_out.create_dataset('obs', data=ps_obs)
             f_out.create_dataset('_last_done', data=np.array([last_completed_index]))
