@@ -77,6 +77,4 @@ $$
 $$
 
 
-We then concatenate these two summaries into our final statistic. To ensure that the covariances are well-conditioned we use $j_z$ = 1,2. These are then saved in HDF5 format and used in `Fisher_Tutorial_with_noise.py` to calculate the Fisher Matrices, that are saved in the `output` folder. In the `output` folder, there are files that have 'Corrected_ .txt', these are in line with the other Fisher matrices, where only the fiducial simulations are noised. The files without 'Corrected_ .txt', are where all simulations are noised. This is, in effect, a proxy for an MCMC, albeit an inaccurate proxy that assumes a Gaussian Likelihood. 
-
-As one can see from `Fisher_Tutorial_with_noise.py`, the results for the covariance are not convergent. This will have an impact on the final results. 
+We then concatenate these two summaries into our final statistic. To ensure that the covariances are well-conditioned we use $j_z$ = 1,2. These are then saved in HDF5 format and used in `Fisher_Tutorial_with_noise.py` to calculate the Fisher Matrices, that are saved in the `output` folder. In the `output` folder, there are files that have 'Corrected', these are in line with the other Fisher matrices, where only the fiducial simulations are noised. The files without 'Corrected', are where all simulations are noised. This is, in effect, a proxy for an MCMC, albeit an inaccurate proxy that assumes a Gaussian Likelihood.
