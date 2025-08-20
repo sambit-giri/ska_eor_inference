@@ -1,27 +1,20 @@
-# Author: Abinash Kumar Shaw
-# Date: July 2025
-
-# This script shows how to compute Fisher information matrix from computed MAPS statistics.
-# Change the configuration and the statsname to accommodate for AAstar (100 and 1000 hrs)
-# and AA4 (1000 hrs) error covariances.
-
-
 import numpy as np
 import h5py
 import tqdm
 import matplotlib.pyplot as plt
 from matplotlib import colors
+from matplotlib.colors import SymLogNorm   
 import corner
 import os, sys
 import glob
 
 # Folder where the data is stored
 # ddir = '/data/cluster/agorce/SKA_chapter_simulations/'
-ddir = '../../data/' # This folder can be created inside the repository folder. It will be ignored during the git commit.
+ddir = '../../../data/' # This folder can be created inside the repository folder. It will be ignored during the git commit.
 # File with fiducial lightcone
 file = ddir+'Lightcone_FID_400_Samples.h5'
 
-statname = 'mapsAA4' # change the statsname here
+statname = 'smt_redmaps100'
 
 # cosmology
 h = 0.6774
@@ -55,6 +48,12 @@ nfreq = frequencies.size
 print(f'Lightcone runs from z={redshifts.min():.2f} to z = {redshifts.max():.2f}.')
 
 
+nfreq_full = nfreq
+red_factor = 8
+nfreq = int(nfreq_full/red_factor)
+
+nu = np.array([np.mean(frequencies[i:i+red_factor]) for i in range(0,nfreq_full, red_factor)])
+zz = 1420.406/nu - 1.
 
 # container dict: keys will be e.g. 'PS_param_1_plus', 'PS_fid', etc.
 MAPS_data = {}
@@ -107,29 +106,83 @@ for ip, param in enumerate(params):
 print(dMAPS['R_BUBBLE_MAX'].shape)
 print(MAPS_derivs.shape)
 
-# Computing the mean derivatives
-avg_derv = np.mean(MAPS_derivs, axis=1) # computing the average of the derivatives over 400 realizations
-derv_avg = np.reshape(avg_derv, shape=(3, 10*128*128), order='C')
+
+"""
+clean = MAPS_data['FID']['maps_clean'][:]
+obs = MAPS_data['FID']['maps_obs'][:]
+noise = MAPS_data['FID']['maps_noise'][:]
+
+clean_diag = np.diagonal(clean, axis1=2, axis2=3)
+obs_diag = np.diagonal(obs, axis1=2, axis2=3)
+noise_diag = np.diagonal(noise, axis1=2, axis2=3)
+
+mean_clean = np.mean(clean_diag, axis=0)
+mean_obs = np.mean(obs_diag, axis=0)
+mean_noise = np.mean(noise_diag, axis=0)
+
+fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(12,4), sharex=True, sharey=False, gridspec_kw=dict(hspace=0.2, wspace=0.2)) 
+
+binnum = 9
+
+for i in range(0,n_samp,40):
+    ax[0].semilogy(clean_diag[i, binnum, :], lw=1, alpha=0.4)
+    ax[1].semilogy(obs_diag[i, binnum, :], lw=1, alpha=0.4)
+    ax[2].semilogy(noise_diag[i, binnum, :], lw=1, alpha=0.4)
+    #break
+
+ax[0].plot(mean_clean[binnum,:], lw=2, ls='--', c='k')
+ax[1].plot(mean_obs[binnum,:], lw=2, ls='--', c='k')
+ax[2].plot(mean_noise[binnum,:], lw=2, ls='--', c='k')
+
+ax[0].set_title(r'Clean')
+ax[1].set_title(r'Obs')
+ax[2].set_title(r'Noise')
+
+plt.savefig(f'diag_ell{binnum}.png', format='png', dpi=300, bbox_inches='tight')
+plt.close()
+
+sys.exit(0)
+"""
 
 # Now computing the covariance of the MAPS using 400 realizations of the signal
 
-data =  MAPS_data['FID']['maps_obs'][:]
-estim_data = np.reshape(data, shape=(400, 10*128*128), order='C') # reshaping
-sig = np.std(estim_data, axis=0) # computing the error variance of the data
+fid_data =  MAPS_data['FID']['maps_obs'][:]
+ell = MAPS_data['FID']['ell'][:]
 
-x = derv_avg/ sig[None,:]
-print(x.shape)
 
-# computing Fisher Matrix assuming uncorrelated modes and frequency (Gaussian approximation)
-F = np.matmul(x, x.T)
-print(F.shape)
+ell_lim = 8
 
-param_cov = np.linalg.inv(F) # parameter error covariance
+fid_data = fid_data[:, :ell_lim, :, :]
+ell = ell[:ell_lim]
+MAPS_derivs = MAPS_derivs[:, :, :ell_lim, : , :]
+
+Nell = len(ell)
+
+stdx = np.std(fid_data, axis=0)
+
+fid_data = fid_data/stdx[None,:,:,:]
+MAPS_derivs = MAPS_derivs/stdx[None, None,:,:,:]
+
+F = np.zeros((nparams, nparams), dtype=np.float64, order='C')
+
+for i in range(nfreq):
+    for j in range(nfreq):
+        derv_ = np.mean(MAPS_derivs[:,:,:,i,j], axis=1)
+        data_ = fid_data[:,:,i,j]
+        errcov = np.cov(data_, rowvar=False)
+        inv_cov = np.linalg.inv(errcov)
+        x = np.matmul(derv_, inv_cov)
+        #print(x.shape)
+        F += np.matmul(x, derv_.T)
+
+
+param_cov = np.linalg.inv(F)
 print(param_cov)
 
-np.savetxt('paramcov_1000_AA4.txt', param_cov, fmt='%e', delimiter='\t', newline='\n') # change the filename here
+np.savetxt('param_cov_100_AAstar.txt', param_cov, fmt='%.6e', delimiter='\t', newline='\n')
 
 # Corner plot
+"""
 fisher_data = np.random.multivariate_normal(fid, param_cov, size=100000)
 fig = corner.corner(
     fisher_data,
@@ -137,15 +190,15 @@ fig = corner.corner(
     plot_datapoints=False,  
     levels=(0.68,0.95),
     truths=fid)
-fig.savefig('corner_1000_AA4.png', format='png', dpi=300, bbox_inches='tight') # change the filename here
+fig.savefig('corner_diag_1000_AA4.png', format='png', dpi=300, bbox_inches='tight')
 plt.clf()
 plt.close()
 
+sys.exit(0)
+"""
 ############### Checking the convergence of the Fisher analysis ################
 # Number of realisations to look at when checking convergence
-samples = np.arange(5, n_samp+5, 5)
-
-flat_derivs = np.reshape(MAPS_derivs, shape=(3, 400, 10*128*128), order='C')
+samples = np.arange(20, n_samp+5, 5)
 
 # Initialising Fishers 
 MAPS_Fisher = np.zeros((samples.size, nparams, nparams))
@@ -153,10 +206,15 @@ MAPS_Fisher_Inv = np.zeros((samples.size, nparams, nparams))
 
 # Calculating the Fisher matrix for a given sample of derivatives 
 for k, sample_size in enumerate(samples):
-    deriv_sample = np.mean(flat_derivs[:, :sample_size, :], axis=1)
-    cov_sample = np.std(estim_data[:sample_size, :], axis=0)
-    x = deriv_sample/ cov_sample[None, :]
-    MAPS_Fisher[k] = np.matmul(x, x.T)
+    for i in range(nfreq):
+        for j in range(nfreq):
+            derv_ = np.mean(MAPS_derivs[:,:sample_size,:,i,j], axis=1)
+            data_ = fid_data[:sample_size,:,i,j]
+            errcov = np.cov(data_, rowvar=False)
+            inv_cov = np.linalg.inv(errcov)
+            x = np.matmul(derv_, inv_cov)
+            #print(x.shape)
+            MAPS_Fisher[k] += np.matmul(x, derv_.T)
     MAPS_Fisher_Inv[k] = np.linalg.inv(MAPS_Fisher[k])
 
 plt.figure(figsize=(12, 4))
@@ -166,4 +224,4 @@ plt.legend()
 plt.ylabel(r'$\sigma^2_{ii}$')
 plt.xlabel('Number of samples')
 plt.title('Convergence of the Parameters Variance')
-plt.savefig('convg_1000_AA4.png', format='png', dpi=300, bbox_inches='tight') # change filename here
+plt.savefig('convg_100_AAstar.png', format='png', dpi=300, bbox_inches='tight')

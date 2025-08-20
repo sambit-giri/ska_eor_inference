@@ -4,9 +4,9 @@ import corner
 from matplotlib.lines import Line2D  # for custom legend handles
 
 # Load the data
-cov1 = np.loadtxt("paramcov_100_AAstar.npy")
-cov2 = np.loadtxt("paramcov_1000_AAstar.npy")
-cov3 = np.loadtxt("paramcov_1000_AA4.npy")
+cov1 = np.loadtxt("param_cov_100_AAstar.txt")
+cov2 = np.loadtxt("param_cov_1000_AAstar.txt")
+cov3 = np.loadtxt("param_cov_1000_AA4.txt")
 
 Fisher_Param = ['$T_{Vir}$','$R_{Max}$','$\zeta$']
 

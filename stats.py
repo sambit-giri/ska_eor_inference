@@ -1,7 +1,5 @@
 # Author: Ian Hothi, Adélie Gorce, & Sambit Giri
 # Date: Feb 2025
-# Author: Edited by Abinash Kumar Shaw (to include MAPS computation)
-# Date: July 2025
 
 # This script shows how to compute a statistic from the Fisher dataset,
 # first on clean data, then on noisy data for the AA* configuration of SKA.
@@ -22,11 +20,34 @@ import tools21cm as t2c
 from multiprocessing import Pool
 import matplotlib.pyplot as plt
 
-# Function to compute the MAPS statistics given a data volume
+def comp_single_bin(args):
+    i, j, k, vis_data, bin_array = args
+    data1 = vis_data[:, :, j]
+    data2 = vis_data[:, :, k]
+    data1 = data1[bin_array==i+1]
+    data2 = np.conj(data2[bin_array==i+1]) # complexx conjugate is done here
+    value = np.real(np.mean(data1 * data2)) # taking only the real part
+
+    return (i, j, k, value)
+
+
 def comp_maps(inarr, bin_array, dth=0.1, lbin=10, nfreq=100, area=10, nthreads=1):
     vis_data = rfft2(inarr*(dth**2.), axes=(0, 1), workers=8) # dth^2 is multiplied for the DFT
 
     bin_maps = np.zeros((lbin, nfreq, nfreq), dtype=np.float64, order='C') # to store the maps data
+    
+    """
+    arg_list = [(i, j, k, vis_data, bin_array)
+                for i in range(lbin)
+                for j in range(nfreq)
+                for k in range(nfreq)]
+    
+    with Pool(processes=nthreads) as pool:
+        results = pool.map(comp_single_bin, arg_list)
+
+    for i, j, k, val in results:
+        bin_maps[i, j, k] = val / area
+    """
 
     for i in range(lbin):
         for j in range(nfreq):
@@ -38,14 +59,13 @@ def comp_maps(inarr, bin_array, dth=0.1, lbin=10, nfreq=100, area=10, nthreads=1
                 bin_maps[i, j, k] = np.real(np.mean(data1 * data2)) / area # taking only the real part
 
     return bin_maps
-##########################################################
 
 # cosmology
 h = 0.6774
 
 # Directory where the data is stored
 # ddir = '/data/cluster/agorce/SKA_chapter_simulations/'
-ddir = '../../data/' # This folder can be created inside the repository folder. It will be ignored during the git commit.
+ddir = '../../../data/' # This folder can be created inside the repository folder. It will be ignored during the git commit.
 
 # Overwriting existing statistic
 overwrite = True #False
@@ -74,10 +94,10 @@ box_length_los = (cdists.max()-cdists.min()).value
 box_length_list = [box_length, box_length, box_length_los]
 
 # statistic params
-statname = 'mapsAA4'
+statname = 'smt_redmapsAA4'
 nbins = 10  # number of k-bins for the spherical ps
 
-################ MAPS grid parameters ####################
+# MAPS grid parameters
 Nz = len(redshifts)
 ang_boxsize = float(box_length / r_z[Nz//2]) # angular size of the box face at central redshift in rad
 dL = box_length/ box_dim # size of each voxel in Mpc
@@ -97,7 +117,7 @@ bins = np.logspace(np.log10(Dl), np.log10(lmax), num=nbins+1, endpoint=True)
 bindex = np.digitize(lgrid, bins, right=False)
 Nell = np.array([np.sum(bindex==i) for i in range(1, nbins+1)]) # stores the number of ell grids in a bin
 ell = np.array([np.mean(lgrid[bindex==i]) for i in range(1, nbins+1)]) # avg ell grids within a bin
-##############################################################
+
 
 # SKA obs parameters
 obs_time = 1000.     # total observation hours
@@ -105,6 +125,13 @@ int_time = 10.       # seconds
 total_int_time = 6.  # hours per day
 declination = -30.0  # declination of the field in degrees
 bmax = 2. * units.km # km
+
+nfreq_full = nfreq
+red_factor = 8
+nfreq = int(nfreq_full/red_factor) # averaging over 8 channels
+
+nu = np.array([np.mean(frequencies[i:i+red_factor]) for i in range(0,nfreq_full, red_factor)])
+zz = 1420.406/nu - 1.
 
 # Statistics estimation
 
@@ -137,11 +164,15 @@ for fname in files:
                 data = f['brightness_lightcone'][i]
             # need to move it to the first axis to match t21c
             data = np.moveaxis(data, 0, 2)
+            
+            # reducing the data volume along freq direction
+            data_ = np.array([np.mean(data[:,:,i:i+red_factor], axis=2) for i in range(0,nfreq_full,red_factor)])
+            data_ = np.moveaxis(data_, 0, 2)
 
             # compute your statistic from the data
             # clean data
 
-            data = t2c.subtract_mean_signal(data, los_axis=2) # subtracting the mean of the data
+            data = t2c.subtract_mean_signal(data_, los_axis=2) # subtracting the mean of the data
 
             maps_clean[i, :, :, :] = comp_maps(data, bindex, dth=dtheta, lbin=nbins, nfreq=nfreq, area=Omega, nthreads=njobs) * (ell[:, None, None] * (ell[:, None, None] +1.)/2./np.pi)
             
@@ -164,7 +195,7 @@ for fname in files:
                 # generate SKA AA* noise
                 noise_lc = t2c.noise_lightcone(
                     ncells=box_dim,
-                    zs=redshifts,
+                    zs=zz,
                     obs_time=obs_time,
                     total_int_time=total_int_time,
                     int_time=int_time,
@@ -172,22 +203,22 @@ for fname in files:
                     subarray_type="AA4",
                     boxsize=box_length,
                     verbose=False,
-                    save_uvmap=ddir+'uvmap_AA4.h5',  # save uv coverage to re-use for each realisation
+                    save_uvmap='uvmap_AA4.h5',  # save uv coverage to re-use for each realisation
                     n_jobs=njobs,  # Time period of recording the data in seconds.
                     checkpoint=16,  # The code write data after checkpoint number of calculations.
                 )  # third axis is line of sight
                 # observation = cosmological signal + noise
-                dt_obs = noise_lc + data # I am not smooting it (Abinash)
-                """
-                t2c.smooth_lightcone(
+                #dt_obs = noise_lc + data
+
+                dt_obs = t2c.smooth_lightcone(
                     lightcone=noise_lc + data, #t2c.subtract_mean_signal(data, los_axis=2),  # Data cube that is to be smoothed
-                    z_array=redshifts,  # Redshifts along the lightcone
+                    z_array=zz,  # Redshifts along the lightcone
                     box_size_mpc=box_length,  # Box size in cMpc
                     max_baseline=bmax,     # Maximum baseline of the telescope
                 )[0]
                 
                 # noisy data
-                
+                """
                 ps_obs[i], ks = t2c.power_spectrum_1d(
                     dt_obs,
                     kbins=nbins,
