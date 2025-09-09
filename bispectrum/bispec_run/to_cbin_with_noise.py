@@ -24,8 +24,11 @@ h = 0.6774
 
 # Directory where the data is stored
 ddir = '/scratch/leon/data/ska_ch_data/' 
-out_directory = '/scratch/leon/data/ska_ch_data/ska_AA_star_1000/Lightcone_FID_400_Samples'
-
+# out_directory = '/scratch/leon/data/ska_ch_data/ska_AA_star_1000/Lightcone_FID_400_Samples'
+#out_directory = '/scratch/leon/data/ska_ch_data/ska_AA_star_1000/Lightcone_FID_400_Samples_with_noise'
+#out_directory = '/scratch/leon/data/ska_ch_data/ska_AA_star_100/Lightcone_FID_400_Samples_with_noise'
+out_directory = '/scratch/leon/data/ska_ch_data/ska_AA4_1000/Lightcone_FID_400_Samples_with_noise'
+os.makedirs(out_directory, exist_ok=True)
 
 # Read one h5py file to obtain metadata on simulations
 file = ddir+'Lightcone_FID_400_Samples.h5'
@@ -47,6 +50,7 @@ box_length_list = [box_length, box_length, box_length_los]
 
 # SKA obs parameters
 obs_time = 1000.     # total observation hours
+#obs_time = 100.     # total observation hours
 int_time = 10.       # seconds
 total_int_time = 6.  # hours per day
 declination = -30.0  # declination of the field in degrees
@@ -66,10 +70,12 @@ for i in tqdm.tqdm(range(n_samp)):
                     total_int_time=total_int_time,
                     int_time=int_time,
                     declination=declination,
-                    subarray_type="AAstar",
+                    #subarray_type="AAstar",
+                    subarray_type="AA4",
                     boxsize=box_length,
                     verbose=False,
-                    save_uvmap=ddir+'uvmap_AAstar.h5',  # save uv coverage to re-use for each realisation
+                    #save_uvmap=ddir+'uvmap_AAstar.h5',  # save uv coverage to re-use for each realisation
+                    save_uvmap=ddir+'uvmap_AA4.h5',  # save uv coverage to re-use for each realisation
                     n_jobs=njobs,  # Time period of recording the data in seconds.
                 )  # third axis is line of sight
     # with_out_smooth = noise_lc + t2c.subtract_mean_signal(data, los_axis=2)  # Data cube that is to be smoothed
@@ -79,4 +85,5 @@ for i in tqdm.tqdm(range(n_samp)):
                     box_size_mpc=box_length,  # Box size in cMpc
                     max_baseline=bmax,     # Maximum baseline of the telescope
                 )[0]
-    to_cbin('{}/realization_{}.cbin'.format(out_directory, int(i)), dt_obs)
+    move_axis_dt_obs = np.moveaxis(dt_obs, 2, 0)  # Move the line of sight axis to the first axis
+    to_cbin('{}/realization_{}.cbin'.format(out_directory, int(i)), move_axis_dt_obs)
