@@ -94,7 +94,7 @@ box_length_los = (cdists.max()-cdists.min()).value
 box_length_list = [box_length, box_length, box_length_los]
 
 # statistic params
-statname = 'smt_redmapsAA4'
+statname = 'smt_redmaps100'
 nbins = 10  # number of k-bins for the spherical ps
 
 # MAPS grid parameters
@@ -120,7 +120,7 @@ ell = np.array([np.mean(lgrid[bindex==i]) for i in range(1, nbins+1)]) # avg ell
 
 
 # SKA obs parameters
-obs_time = 1000.     # total observation hours
+obs_time = 100.     # total observation hours
 int_time = 10.       # seconds
 total_int_time = 6.  # hours per day
 declination = -30.0  # declination of the field in degrees
@@ -172,9 +172,9 @@ for fname in files:
             # compute your statistic from the data
             # clean data
 
-            data = t2c.subtract_mean_signal(data_, los_axis=2) # subtracting the mean of the data
+            data_ = t2c.subtract_mean_signal(data_, los_axis=2) # subtracting the mean of the data
 
-            maps_clean[i, :, :, :] = comp_maps(data, bindex, dth=dtheta, lbin=nbins, nfreq=nfreq, area=Omega, nthreads=njobs) * (ell[:, None, None] * (ell[:, None, None] +1.)/2./np.pi)
+            maps_clean[i, :, :, :] = comp_maps(data_, bindex, dth=dtheta, lbin=nbins, nfreq=nfreq, area=Omega, nthreads=njobs) * (ell[:, None, None] * (ell[:, None, None] +1.)/2./np.pi)
             
             """
             plt.imshow(maps_res[1, :, :] , origin='lower', interpolation=None)
@@ -195,27 +195,35 @@ for fname in files:
                 # generate SKA AA* noise
                 noise_lc = t2c.noise_lightcone(
                     ncells=box_dim,
-                    zs=zz,
+                    zs=redshifts,
                     obs_time=obs_time,
                     total_int_time=total_int_time,
                     int_time=int_time,
                     declination=declination,
-                    subarray_type="AA4",
+                    subarray_type="AAstar",
                     boxsize=box_length,
                     verbose=False,
-                    save_uvmap='uvmap_AA4.h5',  # save uv coverage to re-use for each realisation
+                    save_uvmap='uvmap_AAstar.h5',  # save uv coverage to re-use for each realisation
                     n_jobs=njobs,  # Time period of recording the data in seconds.
                     checkpoint=16,  # The code write data after checkpoint number of calculations.
                 )  # third axis is line of sight
                 # observation = cosmological signal + noise
                 #dt_obs = noise_lc + data
 
+                # reducing the data volume along freq direction
+                noise_lc_ = np.array([np.mean(noise_lc[:,:,i:i+red_factor], axis=2) for i in range(0,nfreq_full,red_factor)])
+                noise_lc_ = np.moveaxis(noise_lc_, 0, 2)
+
                 dt_obs = t2c.smooth_lightcone(
                     lightcone=noise_lc + data, #t2c.subtract_mean_signal(data, los_axis=2),  # Data cube that is to be smoothed
-                    z_array=zz,  # Redshifts along the lightcone
+                    z_array=redshifts,  # Redshifts along the lightcone
                     box_size_mpc=box_length,  # Box size in cMpc
                     max_baseline=bmax,     # Maximum baseline of the telescope
                 )[0]
+
+                # reducing the data volume along freq direction
+                dt_obs_ = np.array([np.mean(dt_obs[:,:,i:i+red_factor], axis=2) for i in range(0,nfreq_full,red_factor)])
+                dt_obs_ = np.moveaxis(dt_obs_, 0, 2)
                 
                 # noisy data
                 """
@@ -231,8 +239,8 @@ for fname in files:
                     box_dims=box_length_list
                 )
                 """
-                maps_obs[i, :, :, :] = comp_maps(dt_obs, bindex, dth=dtheta, lbin=nbins, nfreq=nfreq, area=Omega, nthreads=njobs) * (ell[:, None, None] * (ell[:, None, None] +1.)/2./np.pi)
-                maps_noise[i, :, :, :] = comp_maps(noise_lc, bindex, dth=dtheta, lbin=nbins, nfreq=nfreq, area=Omega, nthreads=njobs) * (ell[:, None, None] * (ell[:, None, None] +1.)/2./np.pi)
+                maps_obs[i, :, :, :] = comp_maps(dt_obs_, bindex, dth=dtheta, lbin=nbins, nfreq=nfreq, area=Omega, nthreads=njobs) * (ell[:, None, None] * (ell[:, None, None] +1.)/2./np.pi)
+                maps_noise[i, :, :, :] = comp_maps(noise_lc_, bindex, dth=dtheta, lbin=nbins, nfreq=nfreq, area=Omega, nthreads=njobs) * (ell[:, None, None] * (ell[:, None, None] +1.)/2./np.pi)
 
         with h5py.File(fname, 'r+') as f:
             # Remove existing datasets if they exist
