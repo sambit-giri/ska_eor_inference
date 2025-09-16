@@ -14,7 +14,7 @@ ddir = '../../../data/' # This folder can be created inside the repository folde
 # File with fiducial lightcone
 file = ddir+'Lightcone_FID_400_Samples.h5'
 
-statname = 'smt_redmaps100'
+statname = 'smt_redmapsAA4'
 
 # cosmology
 h = 0.6774
@@ -165,21 +165,33 @@ MAPS_derivs = MAPS_derivs/stdx[None, None,:,:,:]
 
 F = np.zeros((nparams, nparams), dtype=np.float64, order='C')
 
+condition = np.zeros((nfreq, nfreq), dtype=np.float64, order='C')
+
 for i in range(nfreq):
     for j in range(nfreq):
         derv_ = np.mean(MAPS_derivs[:,:,:,i,j], axis=1)
         data_ = fid_data[:,:,i,j]
         errcov = np.cov(data_, rowvar=False)
+        condition[i,j] = np.log10(np.linalg.cond(errcov))
         inv_cov = np.linalg.inv(errcov)
         x = np.matmul(derv_, inv_cov)
         #print(x.shape)
         F += np.matmul(x, derv_.T)
 
+im = plt.imshow(condition, origin='lower', cmap='coolwarm')
+plt.colorbar(im)
+plt.xlabel(r'$\nu_1$')
+plt.ylabel(r'$\nu_2$')
+plt.title(r'Condition number')
+plt.gcf().set_size_inches(7,6)
+plt.savefig('condition_AA4_1000.png', format='png', dpi=300, bbox_inches='tight')
+plt.clf()
+plt.close()
 
 param_cov = np.linalg.inv(F)
 print(param_cov)
 
-np.savetxt('param_cov_100_AAstar.txt', param_cov, fmt='%.6e', delimiter='\t', newline='\n')
+np.savetxt('param_cov_1000_AA4.txt', param_cov, fmt='%.6e', delimiter='\t', newline='\n')
 
 # Corner plot
 """
@@ -224,4 +236,4 @@ plt.legend()
 plt.ylabel(r'$\sigma^2_{ii}$')
 plt.xlabel('Number of samples')
 plt.title('Convergence of the Parameters Variance')
-plt.savefig('convg_100_AAstar.png', format='png', dpi=300, bbox_inches='tight')
+plt.savefig('convg_1000_AA4.png', format='png', dpi=300, bbox_inches='tight')
