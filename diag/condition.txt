@@ -1,0 +1,3 @@
+AA4     1000hrs     3.0873
+AAstar  1000hrs     2.9664
+AAstar  100hrs      2.1005
