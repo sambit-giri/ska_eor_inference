@@ -1,2 +1,0 @@
-# dim 100
-# r Re[s(r)] Im[s(r)] N_modes
