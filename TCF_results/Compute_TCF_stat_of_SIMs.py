@@ -12,26 +12,42 @@ import TCF_Class
 ################################ Extract z slices from h5 file #####################################################################################
 ####################################################################################################################################################
 
-
-def extract_SIM_z_slices_to_txtfiles(h5_filepath, output_dir, z_indices=None):
+def extract_SIM_z_slices_to_txtfiles(h5_filepath, output_dir, z_indices=None, demean=True):
+    
     """
-    Extract 2D slices at specified z-indices and save each realisation as .txt
+    Extract 2D slices at specified z-indices from an HDF5 lightcone and save each realisation as .txt.
+
+    Parameters
+    ----------
+    h5_filepath : str or Path
+        Path to input HDF5 file containing the lightcone.
+    output_dir : str or Path
+        Directory where the .txt slices will be saved.
+    z_indices : int, list, or None
+        Which redshift indices to extract. None = all.
+    demean : bool
+        If True, subtract the mean value from each slice before saving (recommended for TCF).
+
+    Returns
+    -------
+    saved_dirs : list of str
+        List of output subdirectories created for each z index.
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    with h5py.File(h5_filepath, 'r') as f:
-        ds = f['brightness_lightcone']
+    with h5py.File(h5_filepath, "r") as f:
+        ds = f["brightness_lightcone"]
 
         # Infer dims
-        if ds.ndim == 4:                    # (n_realisations, z, y, x)
+        if ds.ndim == 4:        # (n_realisations, z, y, x)
             n_realisations, n_freq = ds.shape[0], ds.shape[1]
-        elif ds.ndim == 3:                  # (z, y, x) — single realisation
+        elif ds.ndim == 3:      # (z, y, x) — single realisation
             n_realisations, n_freq = 1, ds.shape[0]
         else:
             raise ValueError(f"Unexpected ndim={ds.ndim}; expected 3 or 4.")
 
-        # Normalize input
+        # Normalise input
         if z_indices is None:
             z_indices = list(range(n_freq))
         elif isinstance(z_indices, int):
@@ -45,7 +61,7 @@ def extract_SIM_z_slices_to_txtfiles(h5_filepath, output_dir, z_indices=None):
             if not (0 <= z_idx < n_freq):
                 raise ValueError(f"z_idx {z_idx} out of bounds [0, {n_freq-1}]")
 
-            # Create the per-z subfolder (this was the missing piece)
+            # Create per-z subfolder
             output_folder = output_dir / f"Lightcone_zidx{z_idx}"
             output_folder.mkdir(parents=True, exist_ok=True)
 
@@ -54,15 +70,29 @@ def extract_SIM_z_slices_to_txtfiles(h5_filepath, output_dir, z_indices=None):
             if ds.ndim == 4:
                 for i in range(n_realisations):
                     slice_2d = ds[i, z_idx, :, :]
-                    np.savetxt(output_folder / f"realisation_{i}.txt", slice_2d)
+
+                    # --- De-mean (subtract mean) ---
+                    if demean:
+                        mu = slice_2d.mean()
+                        slice_2d = slice_2d - mu
+
+                    np.savetxt(output_folder / f"realisation_{i}.txt", slice_2d, fmt="%.8e")
+
+                print(f"  ✔ Saved {n_realisations} slice(s) for z_idx={z_idx}")
             else:
                 slice_2d = ds[z_idx, :, :]
-                np.savetxt(output_folder / "realisation_0.txt", slice_2d)
+                if demean:
+                    mu = slice_2d.mean()
+                    slice_2d = slice_2d - mu
+                np.savetxt(output_folder / "realisation_0.txt", slice_2d, fmt="%.8e")
+                print(f"  ✔ Saved 1 slice for z_idx={z_idx}")
 
-            print(f"  ✔ Saved {n_realisations} slice(s) for z_idx={z_idx}")
             saved_dirs.append(str(output_folder))
 
+    print("\n✅ All slices extracted and de-meaned (if enabled).")
+
     return saved_dirs
+
 
 
 # example usage
@@ -71,7 +101,7 @@ def extract_SIM_z_slices_to_txtfiles(h5_filepath, output_dir, z_indices=None):
 # output_dir = 'XXX/data/cluster/lcrascal/SIM_data/h5_files/mock_txtfiles/'
 
 # zrange = np.linspace(0, 12, 13, dtype=int)
-# extract_SIM_z_slices_to_txtfiles(mock_h5_filepath, output_dir, z_indices=zrange)
+# extract_SIM_z_slices_to_txtfiles(mock_h5_filepath, output_dir, z_indices=zrange, demean=True)
 
 
 ####################################################################################################################################################
@@ -388,7 +418,7 @@ def compute_TCF_of_single_SIM_all_realisations(
     if need_extract:
         print("📂 Extracting slices to .txt files...")
         extract_SIM_z_slices_to_txtfiles(
-            h5_filepath=str(sim_filepath), output_dir=str(txt_root), z_indices=z_indices
+            h5_filepath=str(sim_filepath), output_dir=str(txt_root), z_indices=z_indices, demean=True
         )
     else:
         print("📂 Using already-extracted .txt slices (overwrite_txt=False)")
@@ -720,7 +750,7 @@ def run_all(
 ###############################################
 ########## RUNNING FOR AASTAR 1000HRS ##########
 ###############################################
-print(" %%%%%%%% RUNNING  FOR AASTAR 1000HRS %%%%%%%% ")
+print(" %%%%%%%% RUNNING CLEAN SIMS ONLY Tvir Minus %%%%%%%% ")
 
 # TCF files
 tcf_code_dir = "/home/lcrascal/Code/TCF/TCF_completed_code/TCF_required_files"
@@ -739,16 +769,12 @@ SIM_Tvir_minus = '/data/cluster/lcrascal/SIM_data/SIM_Tvir_minus/Lightcone_ION_T
 
 
 # --- file list --- #
-simlist = [
-    SIM_FID,           
-    SIM_HII_plus,
-    SIM_HII_minus,
-    SIM_Rmax_plus,
-    SIM_Rmax_minus,
-    SIM_Tvir_plus,
+simlist = [         
     SIM_Tvir_minus
     
 ]
+
+print("SIMLIST:", simlist)
 
 # Call run_all 
 run_all(
@@ -760,7 +786,7 @@ run_all(
     rmin=3,
     rmax=100,
     overwrite_h5=True,
-    overwrite_txt=True,
+    overwrite_txt=False,
     continue_on_error=True,
     obs_time=1000, # XXXXXX
     total_int_time=6.0, 
@@ -771,7 +797,7 @@ run_all(
     njobs=1, 
     checkpoint=8, 
     bmax_km=2.0,
-    include_clean=False # XXXXXX
+    include_clean=True # XXXXXX
 )
 
 
